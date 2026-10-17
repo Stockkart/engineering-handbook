@@ -4,7 +4,7 @@ Cross-repository conventions for Stockkart: how the system fits together and the
 
 | Document | Purpose |
 |---|---|
-| ARCHITECTURE.md | System context, components, data flow, boundaries, runtime layout |
+| ARCHITECTURE.md | System context, components, main flow, boundaries, runtime, known debt |
 | API_CONTRACT.md | How backend and frontend agree on interfaces, and how contracts change |
 | REVIEW_RUBRIC.md | What reviewers check, severity definitions, definition of done |
 | RUNBOOK.md | Running, testing and debugging locally; environment reference |
