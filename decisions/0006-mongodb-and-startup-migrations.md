@@ -16,23 +16,18 @@ Recorded against inventory-api `ddfd9d79` and inventory-platform `780e504`.
 
 - Spring Data MongoDB is the only store (`spring-boot-starter-data-mongodb`, property `spring.data.mongodb.uri`).
 - There are 49 `@Document` classes.
-- Repository packages are listed explicitly in `@EnableMongoRepositories` on `AppApplication`.
-- `MongoConfig` stores `BigDecimal` as Decimal128.
+- Repository scanning, field defaults, indexes, money and transactions: backend AGENTS.md P3, P4, P5, P7, P8.
 - No migration framework: no Mongock, Flyway or Liquibase in any pom.
-- Fields are added on the model. Old documents read them as `null`.
 - Startup components run on `ApplicationReadyEvent`, ordered by `@Order`.
 - `ProductBarcodeIndexMigration` (5) and `SearchIndexMigration` (6) call `ensureIndex`.
-- `VerticalSchemaSeeder` (10) loads `seeds/*.json`. It overwrites only rows whose `createdBy` starts with `seed:`.
-- Automatic index creation is not enabled.
-- No `MongoTransactionManager` is declared, though `@Transactional` appears in 59 files.
+- `VerticalSchemaSeeder` (10) loads `seeds/*.json` (P9).
 - One manual script exists: `scripts/migrate-lot-id-to-stock-in.mongodb.js`.
 
 ## Consequences
 
 - Data backfills are temporary code. Commit `ddfd9d79` removed six runners after they ran in production.
 - All three remaining runners catch and log errors, so boot continues on failure.
-- Multi-document writes are not atomic.
-- Backend AGENTS.md P6 still lists the six removed runners.
+- Multi-document writes are not atomic (P8).
 
 ## Evidence (paths)
 
@@ -47,4 +42,4 @@ Recorded against inventory-api `ddfd9d79` and inventory-platform `780e504`.
 - inventory-api: `core/product/src/main/resources/seeds/`
 - inventory-api: `scripts/migrate-lot-id-to-stock-in.mongodb.js`
 - inventory-api commit `ddfd9d79` (#266)
-- Rules: [backend AGENTS.md](https://github.com/Stockkart/inventory-api/blob/main/AGENTS.md) S3, P1–P9.
+- Rules: [backend AGENTS.md](https://github.com/Stockkart/inventory-api/blob/main/AGENTS.md) S3, P1–P9; P6 predates #266.

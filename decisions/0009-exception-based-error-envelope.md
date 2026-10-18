@@ -15,20 +15,15 @@ Recorded against inventory-api `ddfd9d79` and inventory-platform `780e504`.
 - Services and validators throw unchecked exceptions from `core/common/.../exception`.
 - All of them extend `BaseException`, which carries an `ErrorCode` with an `HttpStatus`.
 - `ValidationException` dominates: 553 throws in 75 main-source files.
-- Validators are imperative `@Component` classes.
 - One `@RestControllerAdvice`, `GlobalExceptionHandler extends ResponseEntityExceptionHandler`, turns exceptions into `ApiResponse<ApiError>`.
-- The body has `success: false`, `error`, and `data.{message,status,errors}`.
+- Envelope shape, status mapping, validators and framework errors: backend AGENTS.md E2, E3, E6, E8.
 
 ## Consequences
 
-- Statuses and the envelope are as in backend AGENTS.md E2 and E3.
-- Any other exception becomes 500.
-- Spring MVC framework errors return ProblemDetail, not the envelope (E8).
-- `ErrorCode.code` is not serialized.
 - Frontend `apiClient` reads `data.message` first, so backend messages reach the user.
 - `apiClient` reads `errors` and `code` at the top level. The backend nests `errors` under `data` and sends no `code`.
 - So `ApiError.errors` and `ApiError.code` are empty in the frontend today.
-- Handlers log every handled exception at error level, including validation failures.
+- Every handler that returns an envelope logs at error level, including validation failures.
 
 ## Evidence (paths)
 

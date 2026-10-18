@@ -18,8 +18,7 @@ Recorded against inventory-api `ddfd9d79` and inventory-platform `780e504`.
 - No JWT library. Spring Security supplies only the password encoder (`spring-security-crypto`).
 - `AuthenticationInterceptor` requires `Authorization: Bearer` and validates the token against MongoDB (`TokenValidationService`).
 - It sets request attributes `userId`, `userRole`, `shopId`, `userAccount`, `accessToken`.
-- `shopId` is the `X-Shop-Id` header when the user is a member, else the active shop.
-- Public paths are listed in the interceptor and in `excludePathPatterns` in `CorsConfig`.
+- Shop selection, interceptor order and public paths: backend AGENTS.md L6, L7, X3.
 - Frontend `apiClient` keeps the token in `localStorage`, sends `Authorization` and `X-Shop-Id`, and calls handlers on 401 and 402.
 
 ```mermaid

@@ -16,7 +16,8 @@ Recorded against inventory-api `ddfd9d79` and inventory-platform `780e504`.
 - Domain code styles through exported `as const` class maps ("chrome").
 - The chrome maps are `surfaceChrome`, `shellChrome`, `journeyChrome`, `chartChrome`, `productChrome`, `registrationChrome`, `accountingChrome`, `searchChrome`.
 - Theme values are 63 `--sk-*` custom properties in `ui-kit/src/theme/tokens.css`.
-- Each token is set in two blocks: `:root` plus the light `data-theme`, and the dark `data-theme`.
+- All 63 are defined in the `:root, [data-theme='light']` block.
+- 23 of them get a dark value in the `[data-theme='dark']` block.
 - `ThemeProvider` switches theme by setting `data-theme` on `<html>`.
 - Global CSS is only the token import and the reset in `apps/inventory/styles.css`.
 - Native HTML tags are banned in domain code (`bannedNativeHtmlTags`). ui-kit primitives replace them.
@@ -27,6 +28,7 @@ Recorded against inventory-api `ddfd9d79` and inventory-platform `780e504`.
 - Editing a shared class changes every consumer.
 - #222 restyled shared `profileHero*` classes through descendant selectors. #223 reverted it.
 - A new style is a new key in a chrome map, so every style change touches ui-kit.
+- The other 40 tokens (spacing, radius, font, text size, shadow, z-index, status colours) keep their light value in dark theme.
 
 ## Evidence (paths)
 
@@ -39,4 +41,4 @@ Recorded against inventory-api `ddfd9d79` and inventory-platform `780e504`.
 - inventory-platform: `eslint.config.mjs`
 - inventory-platform: `ui-kit/README.md`
 - inventory-platform commits `1335f8c` (#222) and `d4ce2d0` (#223)
-- Rules: [frontend AGENTS.md](https://github.com/Stockkart/inventory-platform/blob/main/AGENTS.md) "Styling", "Component conventions".
+- Rules: [frontend AGENTS.md](https://github.com/Stockkart/inventory-platform/blob/main/AGENTS.md) "Styling" (new tokens go in both blocks), "Component conventions".
