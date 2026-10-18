@@ -4,7 +4,7 @@
 
 - These are the rules both repositories follow for HTTP JSON between the frontend (inventory-platform) and the backend (inventory-api).
 - Design agents use them to fill a design's `## Cross-repo contract` section (CH5). Reviewers cite them as "API_CONTRACT UV3".
-- Per-repo rules live in [backend AGENTS.md](https://github.com/Stockkart/inventory-api) and [frontend AGENTS.md](https://github.com/Stockkart/inventory-platform). This file cites them by rule ID and does not repeat them.
+- Per-repo rules live in [backend AGENTS.md](https://github.com/Stockkart/inventory-api/blob/main/AGENTS.md) and [frontend AGENTS.md](https://github.com/Stockkart/inventory-platform/blob/main/AGENTS.md). This file cites them by rule ID and does not repeat them.
 - Each rule is one bullet. `Ex:` names one endpoint that follows it, as `VERB path` (backend file) ↔ client call (frontend file).
 - Paths start with the repository: `backend/` is inventory-api, `frontend/` is inventory-platform.
 - Scope: 54 `@RestController` classes, 219 mappings. Facts as of backend `ddfd9d79` and frontend `780e504`, 2026-10-17.
@@ -45,8 +45,9 @@ Counts are over the 24 endpoints that take `page`.
 
 - PG1. `page` is 0-based (20 of 24). Ex: `GET /api/v1/inventory` (`backend/core/product/src/main/java/com/inventory/product/rest/controller/InventoryController.java`, default `0`) ↔ `inventoryApi.getAll(page = 0, size = 10)` (`frontend/core/product/src/api/inventory.api.ts`).
 - PG2. The page size is `size` (18 of 24). `limit` only caps a list that has no pages: `GET /api/v1/barcodes`, `/inventory/search/values`, `/purchases/customer-product-history`. Ex: `GET /api/v1/reminders` ↔ `remindersApi.getAll(page, size)`.
-- PG3. A paged response carries `page`, `size`, `totalItems` and `totalPages`. Each name is the majority (`totalItems` 16, `totalPages` 20 of 24). New endpoints nest them as `PageMeta` under the key `page`. Two backend copies exist: `backend/core/product/src/main/java/com/inventory/product/rest/dto/response/PageMeta.java` and `backend/core/reminders/src/main/java/com/inventory/reminders/rest/dto/response/PageMeta.java`. A module that may not depend on product (backend AGENTS.md L1) copies the 4-field class into its own `rest/dto/response`, as reminders did. The frontend type is `PageMeta` in `frontend/platform/contracts/src/notification.types.ts`. Ex: `GET /api/v1/inventory` → `InventoryListResponse.page` ↔ `PaginationInventoryResponse.page: PageMeta` (`frontend/core/product/src/model/types.ts`).
-- Flat fields (accounting, credit) and the key `meta` (reminders) also exist. They follow PG3.
+- PG3. A paged response carries `page`, `size`, `totalItems` and `totalPages`. Each name is the majority (`totalItems` 16, `totalPages` 20 of 24). New endpoints nest them as `PageMeta` under the key `page`. The frontend type is `PageMeta` in `frontend/platform/contracts/src/notification.types.ts`. Ex: `GET /api/v1/inventory` → `InventoryListResponse.page` ↔ `PaginationInventoryResponse.page: PageMeta` (`frontend/core/product/src/model/types.ts`).
+  - Backend copies: `backend/core/product/src/main/java/com/inventory/product/rest/dto/response/PageMeta.java` and `backend/core/reminders/src/main/java/com/inventory/reminders/rest/dto/response/PageMeta.java`. A module with no pom edge to product (backend AGENTS.md L1) copies the 4-field class.
+  - Flat fields (accounting, credit) and the key `meta` (reminders) also exist. They follow PG3.
 - PG4. The free-text filter is `q`. Ex: `GET /api/v1/vendors?q=` ↔ `vendorsApi.list({ q })`.
 - PG5. A date range is `from` and `to`, ISO dates `yyyy-MM-dd` (`@DateTimeFormat(iso = DATE)`, 34 uses). A single day is `asOf`. A GST month is `period` as `YYYY-MM`. Ex: `GET /api/v1/accounting/reports/profit-and-loss` (`backend/core/accounting/src/main/java/com/inventory/accounting/rest/controller/AccountingController.java`) ↔ `accountingApi.profitAndLoss(from, to)` (`frontend/core/accounting/src/api/accounting.api.ts`).
 - PG6. A multi-value filter is one comma-separated parameter. Ex: `txnTypes` on `GET /api/v1/mis/customer-money` (split in `backend/core/analytics/src/main/java/com/inventory/analytics/mis/service/CustomerMoneyMisService.java`) ↔ `join(',')` (`frontend/core/mis/src/api/mis.api.ts`).
@@ -56,13 +57,13 @@ Counts are over the 24 endpoints that take `page`.
 
 - FM1. Dates use Jackson defaults. `Instant` is an ISO-8601 UTC string. `LocalDate` is `yyyy-MM-dd`. Main code has no `spring.jackson.*` property, no `ObjectMapper` bean and no `@JsonFormat`. The frontend types dates as `string`. Ex: `ReminderResponse.reminderAt` (`Instant`) on `GET /api/v1/reminders` ↔ `Reminder.reminderAt: string` (`frontend/core/reminders/src/model/types.ts`).
 - FM2. Money is `BigDecimal` in DTOs (578 fields) and a JSON number on the wire. The frontend types it as `number`. The server computes totals and tax; the client displays them (`backend/README.md`, "Previewing a bill before stock-in"). Ex: `POST /api/v1/vendor-purchase-invoices/preview-totals` → `backend/core/product/src/main/java/com/inventory/product/rest/dto/response/PurchaseTaxPreviewResponse.java` ↔ `PurchaseTaxPreviewResponse` (`frontend/core/product/src/model/types.ts`).
-- The GSTR-1 offline-return file (`Gstr1PortalReturnDto`) follows the GST portal's JSON schema by design.
+  - The GSTR-1 offline-return file (`Gstr1PortalReturnDto`) follows the GST portal's JSON schema by design.
 - FM3. IDs are opaque strings. Generated document IDs are 24-hex Mongo ObjectIds. The interceptors match shop and plan IDs in paths with `[a-fA-F0-9]{24}`. The client never parses or builds an ID. Embedded line IDs are UUIDs (shop menu, stock-correction lines). Ex: `GET /api/v1/vendors/{vendorId}` ↔ `vendorsApi.getById`.
 - FM4. An enum travels as the Java constant name (UPPER_SNAKE). The frontend mirrors it as a same-named string union with every value. Ex: `AccountType` (`backend/core/accounting/src/main/java/com/inventory/accounting/domain/model/AccountType.java`) on `GET /api/v1/accounting/accounts` ↔ `AccountType` (`frontend/core/accounting/src/model/types.ts`), `accountingApi.accounts`.
-- Lower-case wire names by design:
-  - the 9 product search and label enums with `@JsonValue` (`backend/core/product/src/main/java/com/inventory/product/search/FilterOp.java` and its siblings) ↔ `FilterOp` (`frontend/core/product/src/model/search.types.ts`);
-  - `ShopSchemaResponse.mode`, lower-cased in `backend/core/product/src/main/java/com/inventory/product/service/vertical/VerticalSchemaService.java`;
-  - `MenuSellMode`, whose constants are lower-case.
+  - Lower-case wire names by design:
+    - the 9 product search and label enums with `@JsonValue` (`backend/core/product/src/main/java/com/inventory/product/search/FilterOp.java` and its siblings) ↔ `FilterOp` (`frontend/core/product/src/model/search.types.ts`);
+    - `ShopSchemaResponse.mode`, lower-cased in `backend/core/product/src/main/java/com/inventory/product/service/vertical/VerticalSchemaService.java`;
+    - `MenuSellMode`, whose constants are lower-case.
 - FM5. `ApiResponse`, `ApiError` and 7 DTOs in use omit null fields (`@JsonInclude(NON_NULL)`). Other DTOs send `null`. Type an optional field as `?: T | null` either way. The backend ignores unknown request fields (Spring Boot Jackson default). Ex: `taxTreatmentSource` in `PurchaseTaxPreviewResponse` ↔ `taxTreatmentSource?: … | null`.
 
 ## Error response shape
@@ -148,7 +149,7 @@ flowchart LR
 
 ## Non-compliant endpoints today
 
-Rows come from the mechanical checks listed under the table. The table is complete for those checks only. FM4 compares same-named unions only; inline or renamed unions are not checked.
+Rows come from the commands under the table or from the one-off scan noted after them. The table is complete for those checks only. FM4 compares same-named unions only; inline or renamed unions are not checked.
 
 | Endpoint | Rule broken | Path |
 |---|---|---|
@@ -160,7 +161,7 @@ Rows come from the mechanical checks listed under the table. The table is comple
 | `/api/v1/refund/**` | UV1 singular noun | `backend/core/product/src/main/java/com/inventory/product/rest/controller/RefundController.java` |
 | `POST /api/v1/cart/upsert` | UV3 | `backend/core/product/src/main/java/com/inventory/product/rest/controller/CheckoutController.java` |
 | `POST /api/v1/pricing/bulk-update` | UV3 | `backend/core/pricing/src/main/java/com/inventory/pricing/rest/controller/PricingController.java` |
-| `GET`, `PATCH /api/v1/shops/{shopId}` | UV4 no backend mapping; the shop edit modal calls it | `frontend/core/user/src/api/shops.api.ts`, `frontend/platform/shell/src/lib/DashboardLayout.tsx` |
+| `GET`, `PATCH /api/v1/shops/{shopId}` | UV4 no backend mapping; the shop edit modal calls `shopsApi.getShop` on open and `updateShop` on save | `frontend/core/user/src/api/shops.api.ts`, `frontend/platform/shell/src/lib/DashboardLayout.tsx` |
 | `POST /api/v1/checkout`, `POST /api/v1/auth/refresh`, `POST /api/v1/auth/accept-invite` | UV4 no backend mapping; `checkoutApi.create`, `refreshToken`, `acceptInvite` have no caller | `frontend/core/product/src/api/checkout.api.ts`, `frontend/platform/session/src/api/auth.api.ts` |
 | `POST /api/v1/inventory/bulk` | ER1 returns `ApiResponse.error` 400 with no `data` | `backend/core/product/src/main/java/com/inventory/product/rest/controller/InventoryController.java` |
 | `POST /m/upload` | ER1 builds its own 400 and 500; the 500 body carries the exception message | `backend/core/product/src/main/java/com/inventory/product/rest/controller/QRUploadController.java` |
