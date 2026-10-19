@@ -8,6 +8,7 @@ Cross-repository conventions for Stockkart: how the system fits together and the
 | API_CONTRACT.md | How backend and frontend agree on interfaces, how contracts change, and which endpoints deviate today |
 | REVIEW_RUBRIC.md | What reviewers check, severity definitions, definition of done |
 | RUNBOOK.md | Running, testing and debugging locally; environment reference |
+| IN_MEMORY_STATE.md | Caches, held connections and scheduled jobs per backend instance; what to fix before running a second instance |
 | decisions/ | Architecture decision records (ADRs): settled choices and how to propose changing one |
 
 Per-repository rules live in each repository as AGENTS.md:

@@ -10,9 +10,10 @@ Settled architecture decisions. Designs follow them or propose a change.
 | 0004 | [OCR behind a provider and a preprocessor interface](0004-ocr-provider-abstraction.md) | Accepted (recorded retrospectively) |
 | 0005 | [Docker Compose per repository; MongoDB is external](0005-docker-compose-per-repository.md) | Accepted (recorded retrospectively) |
 | 0006 | [MongoDB only; schema evolves in code, indexes and seeds at startup](0006-mongodb-and-startup-migrations.md) | Accepted (recorded retrospectively) |
-| 0007 | [In-app opaque bearer tokens checked by an interceptor](0007-opaque-bearer-token-authentication.md) | Accepted (recorded retrospectively) |
+| 0007 | [In-app opaque bearer tokens checked by an interceptor](0007-opaque-bearer-token-authentication.md) | Superseded by 0010 |
 | 0008 | [Outbound messages: MongoDB outbox polled on a fixed delay](0008-scheduled-outbox-message-dispatch.md) | Accepted (recorded retrospectively) |
 | 0009 | [Errors as `core/common` exceptions mapped by one GlobalExceptionHandler](0009-exception-based-error-envelope.md) | Accepted (recorded retrospectively) |
+| 0010 | [Opaque bearer tokens; the login check is remembered per instance for 60 s](0010-login-check-remembered-per-instance.md) | Accepted |
 
 ## Using ADRs
 
