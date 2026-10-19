@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted (recorded retrospectively).
+Superseded by [0010](0010-login-check-remembered-per-instance.md).
 Recorded against inventory-api `ddfd9d79` and inventory-platform `780e504`.
 
 ## Context
