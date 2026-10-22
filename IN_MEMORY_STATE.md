@@ -21,7 +21,7 @@ Recorded against inventory-api `5f7e67f6` (#273), plus `RequestReadMemoAspect` (
 | `ShopReadCache` | `shopRepository.findById` results (pristine copies; callers get copies) | 60 s after write, 10 000 entries (`shop.cache.*`) | cleared on any save, insert or delete through `shopRepository` on this instance; a read that raced a write is not stored | a shop settings edit, plan renewal or approval on one instance reaches the others in ≤ 60 s (for example, a renewed plan can still look expired there for up to 60 s) | cross-instance eviction, e.g. a change stream on `shops`, or turn it off (`SHOP_CACHE_ENABLED=false`) |
 | `SearchValueSuggester.cache` | per shop and field: distinct values for search suggestions | 60 s per entry, checked on read; no size cap, entries never removed | TTL only | suggestions can differ between instances for ≤ 60 s | nothing for correctness; a size cap as shops grow |
 | `SchemaLoader.schemaCache`, `activeVersionCache` | vertical schemas from `vertical_schemas` | until restart; warmed and evicted only by `VerticalSchemaSeeder` at startup | schemas change only via seed files and a restart (backend AGENTS.md P9) | during a rolling deploy, instances can run different schema versions until all have restarted | nothing while schemas change only at deploy |
-| `EventService.emittersByShop` | open SSE connections (`/api/v1/events/stream`) per shop | while each browser stays connected | in-process only | an event raised on instance A reaches only browsers connected to A; others miss live notifications | publish events through a shared channel (e.g. a change stream on `events`) to every instance |
+| `EventService.emittersByShop` | open SSE connections (`/api/v1/events/stream`) per shop | while each browser stays connected: a dropped connection is removed when a keep-alive write fails (2–3 × 25 s), else at the 30-minute emitter timeout; at most 20 per shop (the oldest is closed) | in-process only; gauge `sse_emitters_open` | an event raised on instance A reaches only browsers connected to A; others miss live notifications | publish events through a shared channel (e.g. a change stream on `events`) to every instance |
 | `taskExecutor`, `ocrTaskExecutor` | queued async work (`@Async`, OCR parsing) | until done; in-memory queue | none | queued work is lost if that instance stops; each instance has its own pool and limits | nothing for correctness; size each instance's pool |
 
 ## Scheduled jobs (run on every instance)
@@ -30,6 +30,7 @@ Recorded against inventory-api `5f7e67f6` (#273), plus `RequestReadMemoAspect` (
 |---|---|---|---|
 | `MessageQueueProcessor.processQueue` | `messaging.dispatch-interval-ms` | no | the same email can be sent twice (ADR 0008) |
 | `EventService.processEventsScheduler` | `reminders.dispatch-interval-ms` | no | the same reminder can be raised twice |
+| `EventService.heartbeat` | `sse.heartbeat-interval-ms` (25 s) | not needed | harmless: each instance pings only its own connections |
 | `QRUploadService.cleanupExpiredTokens` | hourly | not needed | harmless: idempotent delete |
 | `ExpiredTokenCleanupJob.run` | `auth.token-cleanup.cron` (03:30 Asia/Kolkata) | not needed | harmless: idempotent `$pull` |
 
