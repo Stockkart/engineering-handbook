@@ -4,7 +4,7 @@
 
 Production runs one backend instance (DigitalOcean App Platform, `instance_count` 1). Anything the backend keeps in memory, and anything that runs on every instance, behaves differently once a second instance runs. This page lists all of it, so scaling out is a checklist and not a surprise.
 
-Recorded against inventory-api `5f7e67f6` (#273), plus `RequestReadMemoAspect` (branch `perf/request-shop-plan-usage`), `ShopReadCache` (branch `perf/shop-read-cache`) and `HeavyRequestLimiter` (branch `fix/heavy-request-limits`).
+Recorded against inventory-api `5f7e67f6` (#273), plus `RequestReadMemoAspect` (branch `perf/request-shop-plan-usage`), `ShopReadCache` (branch `perf/shop-read-cache`), `HeavyRequestLimiter` (#304) and `MongoTx` (branch `feat/mongo-transactions`).
 
 ## Rule
 
@@ -23,6 +23,7 @@ Recorded against inventory-api `5f7e67f6` (#273), plus `RequestReadMemoAspect` (
 | `SchemaLoader.schemaCache`, `activeVersionCache` | vertical schemas from `vertical_schemas` | until restart; warmed and evicted only by `VerticalSchemaSeeder` at startup | schemas change only via seed files and a restart (backend AGENTS.md P9) | during a rolling deploy, instances can run different schema versions until all have restarted | nothing while schemas change only at deploy |
 | `EventService.emittersByShop` | open SSE connections (`/api/v1/events/stream`) per shop | while each browser stays connected: a dropped connection is removed when a keep-alive write fails (2–3 × 25 s), else at the 30-minute emitter timeout; at most 20 per shop (the oldest is closed) | in-process only; gauge `sse_emitters_open` | an event raised on instance A reaches only browsers connected to A; others miss live notifications | publish events through a shared channel (e.g. a change stream on `events`) to every instance |
 | `HeavyRequestLimiter` | per kind (export, analytics, OCR, import): permits in use and a waiting line of web requests | permits are held only while a heavy request runs; limit, line length and wait per kind (`heavy.<kind>.limit`, `.queue`, `.wait-ms`, `.background-wait-ms`); over the line or the wait → 503 with `Retry-After`; gauges `inventory_heavy_in_use`, `inventory_heavy_waiting`, counter `inventory_heavy_rejected` | in-process only; a permit is released when the request ends, including on error | each instance has its own permits, so N instances allow N × limit heavy requests at once against the same database | nothing for correctness; lower the per-instance limits, or move heavy work to the worker (scaling step 2) |
+| `MongoTx.shopLocks` | one fair lock per shop: the shop's money flows (bill completion, refund, vendor invoice and return, credit charge and settlement) take turns, each in its own MongoDB transaction | a lock per shop seen since start, never removed (a few bytes each); a flow waits up to `mongo.transactions.shop-wait-ms` (15 s) for its turn, else 503 busy | in-process only; released when the flow ends, error or not | each instance has its own turns, so two instances can run one shop's flows at once; they then write-conflict and MongoDB aborts one, which `MongoTx` runs again (up to `mongo.transactions.max-attempts`): correct, but slower when one shop bills on both | nothing for correctness; under heavy per-shop load, route a shop to one instance or shorten the transactions |
 | `taskExecutor`, `ocrTaskExecutor` | queued async work (`@Async`, OCR parsing) | until done; in-memory queue | none | queued work is lost if that instance stops; each instance has its own pool and limits | nothing for correctness; size each instance's pool |
 
 ## Scheduled jobs (run on every instance)
@@ -56,5 +57,6 @@ Recorded against inventory-api `5f7e67f6` (#273), plus `RequestReadMemoAspect` (
 - inventory-api: `core/product/src/main/java/com/inventory/product/service/QRUploadService.java`
 - inventory-api: `app/src/main/java/com/inventory/app/config/AsyncExecutorConfiguration.java`
 - inventory-api: `core/common/src/main/java/com/inventory/common/heavy/HeavyRequestLimiter.java`
+- inventory-api: `core/common/src/main/java/com/inventory/common/tx/MongoTx.java`
 - inventory-api: `app/src/main/java/com/inventory/app/heavy/HeavyRequestAspect.java`
 - inventory-api: `app/src/main/resources/application.properties`
