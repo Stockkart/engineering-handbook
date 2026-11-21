@@ -55,17 +55,19 @@ Sources: `frontend/apps/inventory/react-router.config.ts`, `backend/app/src/main
 flowchart TB
   subgraph frontend["frontend (inventory-platform)"]
     f_app["apps/inventory"]
+    f_att["apps/attendance (Expo, Android first)"]
     f_reg["plugins/registry"]
     f_cafe["plugins/cafe"]
-    f_core["core/*: product, user, accounting, analytics, mis, credit, plan, pricing, reminders, taxation, checkout, notifications"]
+    f_core["core/*: product, user, accounting, analytics, mis, credit, plan, pricing, reminders, taxation, checkout, notifications, hr"]
     f_plat["platform/*: access, api-client, contracts, query, routing, schema, session, shell"]
+    f_proto["platform/attendance-protocol (pure TS: wire types, canonical payloads, pairing codes, messages)"]
     f_ui["ui-kit"]
   end
   subgraph backend["backend (inventory-api)"]
     b_app["app"]
     b_top["core/taxation, core/analytics"]
     b_product["core/product"]
-    b_deps["core/*: ocr, accounting, credit, pricing, plan, reminders, documentservice, user"]
+    b_deps["core/*: ocr, accounting, credit, pricing, plan, reminders, documentservice, user, hr"]
     b_notif["core/notifications"]
     b_res["core/resource"]
     b_pe["pluginengine"]
@@ -77,15 +79,20 @@ flowchart TB
   f_cafe -- "core/product" --> f_core
   f_cafe --> f_plat & f_ui
   f_core --> f_plat & f_ui
+  f_core -- "core/hr" --> f_proto
+  f_att --> f_proto
+  f_att -- "contracts (types only)" --> f_plat
   b_app --> b_top & b_product & b_deps & b_notif & b_res & b_pe & b_plug & b_base
   b_top --> b_product & b_deps
   b_product --> b_deps & b_pe
   b_deps -- "user" --> b_notif
   b_plug -- "PluginRegistry" --> b_pe
   f_plat -- "HTTP /api/v1" --> b_app
+  f_att -- "HTTPS /api/v1/hr/attendance-app, signed envelope" --> b_app
 ```
 
 - Edges show the main direction only. `backend/core/common` and `backend/core/metrics` are used by all backend modules. `backend/core/resource` is used by `backend/app` only.
+- `frontend/apps/attendance` and `frontend/platform/attendance-protocol` carry the Nx tag `scope:attendance` and may depend only on `scope:attendance` and `type:platform` (`frontend/eslint.config.mjs`); the app imports `attendance-protocol` and `contracts` only, never `ui-kit`, `api-client`, `shell` or `core/*`, because it runs in React Native, not the browser. `frontend/core/hr` imports `attendance-protocol` for the pairing and register types.
 - Sources: each `pom.xml` (e.g. `backend/core/taxation/pom.xml`, `backend/core/analytics/pom.xml`, `backend/core/user/pom.xml`, `backend/app/pom.xml`); imports in `frontend/plugins/cafe/src`, `frontend/plugins/registry/src`, `frontend/apps/inventory/app`.
 - Full matrices: backend AGENTS.md, Layering and module boundaries; frontend AGENTS.md, Nx workspace structure and project boundaries.
 
@@ -146,7 +153,8 @@ Sources: `frontend/core/product/src/pages/ProductEntryPage.tsx`, `frontend/core/
 | Capability | Backend (inventory-api) | Frontend (inventory-platform) |
 |---|---|---|
 | Login, signup, tokens | `backend/core/user` (`AuthController`, `TokenValidationService`) | `frontend/core/user/src/journey/auth`, `frontend/platform/session` |
-| Request auth, tenant, RBAC, plan expiry | `backend/app/src/main/java/com/inventory/app/interceptor/` | `frontend/platform/api-client` (headers, 401/402), `frontend/platform/access` |
+| Request auth, tenant, RBAC, plan expiry | `backend/app/src/main/java/com/inventory/app/interceptor/`; Attendance app device paths: `backend/core/hr/src/main/java/com/inventory/hr/service/AttendanceAppAuthInterceptor.java` (signed envelope, API_CONTRACT AU7) | `frontend/platform/api-client` (headers, 401/402), `frontend/platform/access`; `frontend/apps/attendance/src/api/appClient.ts` |
+| HR: employees, attendance, leave, payroll, Attendance app | `backend/core/hr` (`AttendanceController`, `EmployeeController`, `HrSelfServiceController`, `AttendanceAppController`) | `frontend/core/hr`; `frontend/apps/attendance` (worker's phone); `frontend/platform/attendance-protocol` (wire types and canonical payloads shared by both) |
 | Shops: register, active shop, schema, capabilities | `backend/core/product` (`ShopController`) | `frontend/platform/session` (`/shops/me/schema`, `/shops/me/capabilities`), `frontend/core/user` (shops) |
 | Shop members, roles | `backend/core/user` (`ShopRbacController`, `InvitationController`, `JoinRequestController`) | `frontend/core/user` |
 | Customers, vendors | `backend/core/user` | `frontend/core/user` |
@@ -208,6 +216,7 @@ Logic and validation:
 | From → to | Protocol | Env var names | Read in |
 |---|---|---|---|
 | Browser → backend | HTTPS REST, SSE | `VITE_API_URL`, `VITE_MOBILE_API_URL` | `frontend/platform/api-client/src/lib/client.ts`, `frontend/core/product/src/api/upload.api.ts` |
+| Attendance app → backend | HTTPS REST only (`https://` enforced at import time), signed envelope, no Bearer | `EXPO_PUBLIC_API_URL` | `frontend/apps/attendance/src/config.ts`, `frontend/apps/attendance/src/api/appClient.ts` |
 | Backend → browser origin (CORS, links) | none | `CLIENT_URL` | `CorsConfig`, `UploadTokenUtil` |
 | Backend → MongoDB | Mongo driver | `DB_URI` | `backend/app/src/main/resources/application.properties` |
 | Backend → OCR | HTTPS, AWS SDK | `OCR_PROVIDER`, `OCR_OPENAI_MODEL`, `OCR_GEMINI_MODEL`, `OPENAI_API_KEY`, `GEMINI_API_KEY`, `AWS_ACCESS_KEY`, `AWS_SECRET_ACCESS`, `AWS_REGION` | `OcrConfig` |
