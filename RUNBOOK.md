@@ -7,7 +7,7 @@ Verified 2026-10-18 in the task workspace; backend `ddfd9d79`, frontend `780e504
 - How to run, test and debug Stockkart on a local machine and in the pipeline task workspace.
 - Readers: coding agents and humans.
 - Each command carries a result: `PASS`, `NEEDS-ENV: <names>`, `FAIL: <error>`, or `recipe, not run (<reason>)`. `(run: …)` marks a command executed in the task workspace; its logs were in `.sdlc/runbook-verify/`.
-- Repository rules live in [backend AGENTS.md](https://github.com/Stockkart/inventory-api/blob/main/AGENTS.md) and [frontend AGENTS.md](https://github.com/Stockkart/inventory-platform/blob/main/AGENTS.md). This file does not repeat them.
+- Repository rules live in [backend AGENTS.md](https://github.com/Stockkart/inventory-api/blob/main/AGENTS.md), [frontend AGENTS.md](https://github.com/Stockkart/inventory-platform/blob/main/AGENTS.md) and [app AGENTS.md](https://github.com/Stockkart/team-app/blob/main/AGENTS.md). This file does not repeat them. The Stockkart Team app (`stockkart-team-app`) has no compose file; its local commands (`pnpm lint`, `pnpm typecheck`, `pnpm test`, `pnpm check:strings`, `pnpm check:protocol`) and the debug-APK recipe are in its README.md and TESTING.md.
 
 ## Prerequisites
 

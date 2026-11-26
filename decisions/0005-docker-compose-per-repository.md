@@ -7,7 +7,7 @@ Recorded against inventory-api `ddfd9d79` and inventory-platform `780e504`.
 
 ## Context
 
-- Backend and frontend live in separate repositories, each with its own compose file.
+- Backend and frontend live in separate repositories, each with its own compose file. The Stockkart Team app (stockkart-team-app, worker-app D17) is a third code repository with no compose file: it builds an APK, not a container.
 - Reason not recorded.
 
 ## Decision

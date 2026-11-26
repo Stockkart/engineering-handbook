@@ -3,8 +3,9 @@
 ## Purpose
 
 - Users: reviewer agents and humans. Scope: every design and every code change in backend or frontend.
-- The rubric adds cross-repo checks, severity and done. Repository rules stay in [backend AGENTS.md](https://github.com/Stockkart/inventory-api/blob/main/AGENTS.md) and [frontend AGENTS.md](https://github.com/Stockkart/inventory-platform/blob/main/AGENTS.md).
-- Paths start with `backend/` (inventory-api root) or `frontend/` (inventory-platform root).
+- The rubric adds cross-repo checks, severity and done. Repository rules stay in [backend AGENTS.md](https://github.com/Stockkart/inventory-api/blob/main/AGENTS.md), [frontend AGENTS.md](https://github.com/Stockkart/inventory-platform/blob/main/AGENTS.md) and [app AGENTS.md](https://github.com/Stockkart/team-app/blob/main/AGENTS.md).
+- Paths start with `backend/` (inventory-api root), `frontend/` (inventory-platform root) or `app/` (stockkart-team-app root, the Stockkart Team app).
+- A change to `attendance-protocol` touches both copies, `frontend/platform/attendance-protocol` first and `app/packages/attendance-protocol` next, kept byte-identical by `app/scripts/protocol-parity.mjs` (ARCHITECTURE Components; API_CONTRACT CH2).
 - A bare rule ID (L6, E7) is a backend AGENTS.md rule. `backend › <Section>` and `frontend › <Section>` are AGENTS.md sections.
 - Answer each item yes, no or n/a.
 
