@@ -16,7 +16,7 @@ Recorded against inventory-api `ddfd9d79` and inventory-platform `780e504`.
 - One pnpm workspace: `apps/*`, `core/*`, `platform/*`, `plugins/*`, `ui-kit`.
 - Nx 22.1.2 infers targets from four plugins: `@nx/js/typescript`, `@nx/react/router-plugin`, `@nx/eslint/plugin`, `@nx/vite/plugin`.
 - Five layer tags are enforced by `@nx/enforce-module-boundaries`: `type:app`, `type:platform`, `type:core`, `type:plugin`, `type:ui-kit`.
-- One app, `apps/inventory`, composes routes through `plugins/registry`.
+- One app, `apps/inventory`, composes routes through `plugins/registry`. The Stockkart Team app is not in this monorepo: it lives in its own repository, stockkart-team-app (worker-app D17), and carries its own copy of `platform/attendance-protocol`.
 - Frontend vertical plugins load by `verticalId` through dynamic import.
 - Only `cafe` is registered as a frontend plugin.
 

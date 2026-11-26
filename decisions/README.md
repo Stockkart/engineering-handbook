@@ -30,7 +30,7 @@ Settled architecture decisions. Designs follow them or propose a change.
 5. Then set the old ADR's Status to `Superseded by NNNN`. Keep the old file.
 6. Never renumber or delete an ADR.
 7. Add or update the index row above in the same PR.
-8. When the code lives in inventory-api or inventory-platform, the ADR goes in the handbook PR of the same task.
+8. When the code lives in inventory-api, inventory-platform or stockkart-team-app, the ADR goes in the handbook PR of the same task.
 
 ## Writing rules
 

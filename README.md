@@ -12,7 +12,8 @@ Cross-repository conventions for Stockkart: how the system fits together and the
 | decisions/ | Architecture decision records (ADRs): settled choices and how to propose changing one |
 
 Per-repository rules live in each repository as AGENTS.md:
-- https://github.com/Stockkart/inventory-api
-- https://github.com/Stockkart/inventory-platform
+- https://github.com/Stockkart/inventory-api (backend)
+- https://github.com/Stockkart/inventory-platform (web frontend)
+- https://github.com/Stockkart/team-app (the Stockkart Team app; its own repository since worker-app D17)
 
 Every document in this repository is given to the AI agents that design, implement and review changes, and reviewers must cite the rule they apply. Keep documents factual (derived from the code as it is) and short.

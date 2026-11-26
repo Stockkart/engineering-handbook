@@ -3,16 +3,17 @@
 ## Purpose
 
 - Stockkart is shop inventory software: stock, billing, GST returns, accounting, plans and OCR invoice parsing.
-- It has two repositories: inventory-api (backend) and inventory-platform (frontend).
-- This page is for design and review agents. It covers the seams between the two repositories.
-- `backend/` is the inventory-api repository root; `frontend/` is the inventory-platform repository root.
-- Per-repository rules: [backend AGENTS.md](https://github.com/Stockkart/inventory-api/blob/main/AGENTS.md), [frontend AGENTS.md](https://github.com/Stockkart/inventory-platform/blob/main/AGENTS.md).
+- It has three code repositories: inventory-api (backend), inventory-platform (web frontend) and stockkart-team-app (the Stockkart Team app, Expo; worker-app D17). This handbook is the fourth repository.
+- This page is for design and review agents. It covers the seams between the code repositories.
+- `backend/` is the inventory-api repository root; `frontend/` is the inventory-platform repository root; `app/` is the stockkart-team-app repository root.
+- Per-repository rules: [backend AGENTS.md](https://github.com/Stockkart/inventory-api/blob/main/AGENTS.md), [frontend AGENTS.md](https://github.com/Stockkart/inventory-platform/blob/main/AGENTS.md), [app AGENTS.md](https://github.com/Stockkart/team-app/blob/main/AGENTS.md).
 
 ## System context
 
 ```mermaid
 flowchart LR
   staff["Shop staff (browser)"]
+  worker["Worker's phone (Stockkart Team app)"]
   phone["Phone (QR upload page /m/upload)"]
   fe["inventory-platform (React Router SSR app)"]
   be["inventory-api (Spring Boot app)"]
@@ -40,6 +41,8 @@ flowchart LR
   rzp -- "webhook" --> be
   staff -- "checkout" --> rzp
   staff -- "sign-in" --> google
+  worker -- "REST /api/v1/hr/worker, Bearer; /api/v1/hr/attendance-app, signed envelope" --> be
+  worker -- "sign-in" --> google
   be -- "verify ID token" --> google
 ```
 
@@ -57,15 +60,20 @@ flowchart TB
     f_app["apps/inventory"]
     f_reg["plugins/registry"]
     f_cafe["plugins/cafe"]
-    f_core["core/*: product, user, accounting, analytics, mis, credit, plan, pricing, reminders, taxation, checkout, notifications"]
+    f_core["core/*: product, user, accounting, analytics, mis, credit, plan, pricing, reminders, taxation, checkout, notifications, hr"]
     f_plat["platform/*: access, api-client, contracts, query, routing, schema, session, shell"]
+    f_proto["platform/attendance-protocol (pure TS: wire types, canonical payloads, pairing codes, messages, worker types and messages, phone rule; web copy; the app carries an identical copy at app/packages/attendance-protocol, parity-checked)"]
     f_ui["ui-kit"]
+  end
+  subgraph app["app (stockkart-team-app)"]
+    f_att["stockkart-team-app (Expo, Android first): Stockkart Team"]
+    a_proto["packages/attendance-protocol (app copy, @stockkart/attendance-protocol)"]
   end
   subgraph backend["backend (inventory-api)"]
     b_app["app"]
     b_top["core/taxation, core/analytics"]
     b_product["core/product"]
-    b_deps["core/*: ocr, accounting, credit, pricing, plan, reminders, documentservice, user"]
+    b_deps["core/*: ocr, accounting, credit, pricing, plan, reminders, documentservice, user, hr"]
     b_notif["core/notifications"]
     b_res["core/resource"]
     b_pe["pluginengine"]
@@ -77,17 +85,23 @@ flowchart TB
   f_cafe -- "core/product" --> f_core
   f_cafe --> f_plat & f_ui
   f_core --> f_plat & f_ui
+  f_core -- "core/hr" --> f_proto
+  f_att --> a_proto
+  a_proto -. "identical bytes, scripts/protocol-parity.mjs" .- f_proto
   b_app --> b_top & b_product & b_deps & b_notif & b_res & b_pe & b_plug & b_base
   b_top --> b_product & b_deps
   b_product --> b_deps & b_pe
   b_deps -- "user" --> b_notif
   b_plug -- "PluginRegistry" --> b_pe
   f_plat -- "HTTP /api/v1" --> b_app
+  f_att -- "HTTPS /api/v1/hr/attendance-app, signed envelope" --> b_app
+  f_att -- "HTTPS /api/v1/auth, /api/v1/hr/worker, /api/v1/users/me, Bearer" --> b_app
 ```
 
 - Edges show the main direction only. `backend/core/common` and `backend/core/metrics` are used by all backend modules. `backend/core/resource` is used by `backend/app` only.
+- `app/` (the stockkart-team-app repository; formerly `frontend/apps/attendance`, worker-app D17) is the *Stockkart Team* app. It has two HTTP clients that never share headers (API_CONTRACT AU9): `AccountClient` (Bearer token; sign-in, join a shop, worker state, history, profile, and the pairing handshake on `/hr/worker/pairings/*`) and `AppClient` (signed device envelope; punches, pairing status, consent, unpair). The app imports only its own copy of the protocol, `app/packages/attendance-protocol` (`@stockkart/attendance-protocol`), never `ui-kit`, `api-client`, `shell` or `core/*` (`no-restricted-imports` in `app/eslint.config.mjs`), because it runs in React Native, not the browser; the one shared type it needs, `ApiResponse<T>`, is a local copy in `app/src/api/apiResponse.ts`. It has its own violet & peach token file (`app/src/theme/tokens.ts`, worker-app D14). The two protocol copies, `frontend/platform/attendance-protocol` (web copy, Nx tag `scope:attendance`) and `app/packages/attendance-protocol` (app copy), are kept byte-identical by `app/scripts/protocol-parity.mjs` in the app's CI; a protocol change lands platform first, then app (API_CONTRACT CH2). `frontend/core/hr` imports the web copy for the pairing, register and join-request types.
 - Sources: each `pom.xml` (e.g. `backend/core/taxation/pom.xml`, `backend/core/analytics/pom.xml`, `backend/core/user/pom.xml`, `backend/app/pom.xml`); imports in `frontend/plugins/cafe/src`, `frontend/plugins/registry/src`, `frontend/apps/inventory/app`.
-- Full matrices: backend AGENTS.md, Layering and module boundaries; frontend AGENTS.md, Nx workspace structure and project boundaries.
+- Full matrices: backend AGENTS.md, Layering and module boundaries; frontend AGENTS.md, Nx workspace structure and project boundaries; app AGENTS.md, imports and the parity rule.
 
 ## Main flow
 
@@ -145,8 +159,10 @@ Sources: `frontend/core/product/src/pages/ProductEntryPage.tsx`, `frontend/core/
 
 | Capability | Backend (inventory-api) | Frontend (inventory-platform) |
 |---|---|---|
-| Login, signup, tokens | `backend/core/user` (`AuthController`, `TokenValidationService`) | `frontend/core/user/src/journey/auth`, `frontend/platform/session` |
-| Request auth, tenant, RBAC, plan expiry | `backend/app/src/main/java/com/inventory/app/interceptor/` | `frontend/platform/api-client` (headers, 401/402), `frontend/platform/access` |
+| Login, signup, tokens | `backend/core/user` (`AuthController`, `TokenValidationService`; `WORKER` sign-up with `role` and `source`, `GoogleTokenVerifier` audience allow-list) | `frontend/core/user/src/journey/auth`, `frontend/platform/session`; `app/src/account` (worker sign-in, create account, Google) |
+| Request auth, tenant, RBAC, plan expiry | `backend/app/src/main/java/com/inventory/app/interceptor/`; Attendance app device paths: `backend/core/hr/src/main/java/com/inventory/hr/service/AttendanceAppAuthInterceptor.java` (signed envelope, API_CONTRACT AU7); worker paths: `backend/core/hr/src/main/java/com/inventory/hr/service/WorkerCredentialInterceptor.java` (one credential per request, API_CONTRACT AU9) | `frontend/platform/api-client` (headers, 401/402), `frontend/platform/access`; `app/src/api/appClient.ts` (envelope), `app/src/api/accountClient.ts` (Bearer) |
+| HR: employees, attendance, leave, payroll, Attendance app | `backend/core/hr` (`AttendanceController`, `EmployeeController`, `HrSelfServiceController`, `AttendanceAppController`) | `frontend/core/hr`; `app/` (worker's phone); `frontend/platform/attendance-protocol` and its identical app copy `app/packages/attendance-protocol` (wire types and canonical payloads shared by both, parity-checked) |
+| Worker accounts: join a shop, approval inbox, worker state, pairing with a login, exit | `backend/core/hr` (`WorkerController` `/api/v1/hr/worker/**`, `JoinRequestInboxController` `/api/v1/hr/join-requests/**`, `WorkerJoinService`, `WorkerStateService`, `WorkerPairingService`, `WorkerExitJob`); `backend/core/user` (`WorkerAccountController` `/api/v1/users/me/profile`, `/users/me/photo`, `/users/{userId}/photo`; `WorkerAccountService`, `UserPhotoService`; the `WORKER` role, `UserAccount.shopId` as the one-shop lock) | `app/` (`src/account`, `src/join`, `src/home`, `src/modules`, `src/app/AppStateMachine.ts`); `frontend/core/hr` (Join requests tab, possible-match panel, "Request profile details"); `frontend/platform/shell` (`accessNav.ts`: WORKER login redirect to My HR, `NotInShopPage`); `frontend/core/user` (`ShopUsersList`, "Workers" group); `frontend/platform/attendance-protocol/src/worker.types.ts`, `worker-messages.ts`, `phone.ts` (and the same files in `app/packages/attendance-protocol/src`) |
 | Shops: register, active shop, schema, capabilities | `backend/core/product` (`ShopController`) | `frontend/platform/session` (`/shops/me/schema`, `/shops/me/capabilities`), `frontend/core/user` (shops) |
 | Shop members, roles | `backend/core/user` (`ShopRbacController`, `InvitationController`, `JoinRequestController`) | `frontend/core/user` |
 | Customers, vendors | `backend/core/user` | `frontend/core/user` |
@@ -197,8 +213,9 @@ Logic and validation:
 | Frontend dev | `pnpm install` | `nx dev inventory` | 4200 (preview 4300); host port `INVENTORY_PLATFORM_PORT` | `frontend/apps/inventory/vite.config.mts`, `frontend/Dockerfile.dev`, `frontend/docker-compose.yml` |
 | Frontend prod image | `nx build inventory` | `react-router-serve` | 3000 | `frontend/Dockerfile` |
 | Frontend deployed | `vercel build` | Vercel | none | `frontend/scripts/deploy/vercel-deploy.sh` |
+| Stockkart Team app | `pnpm install` (own lockfile, pnpm 9.8.0); debug APK: `pnpm prebuild:android` then Gradle `assembleDebug` (`app/.github/workflows/android.yml`); store builds: `eas build` (`app/eas.json`) | on the worker's phone (Android first) | none; calls the backend over HTTPS at `EXPO_PUBLIC_API_URL` | `app/package.json`, `app/app.json`, `app/eas.json`, `app/README.md` |
 
-- Each repo has its own compose file. Neither runs the whole stack.
+- Each code repository has its own compose file (the app has none). None runs the whole stack.
 - Backend compose runs `app` only. Frontend compose runs `inventory-platform` only; its `inventory-server` service is commented out.
 - Deploy targets and order: `backend/docs/deploying.md`, `frontend/docs/deploying.md`.
 - Backend health: GET `/actuator/health`. GET `/commit.txt` works only in the Docker image; `backend/Dockerfile` writes the file.
@@ -208,6 +225,7 @@ Logic and validation:
 | From → to | Protocol | Env var names | Read in |
 |---|---|---|---|
 | Browser → backend | HTTPS REST, SSE | `VITE_API_URL`, `VITE_MOBILE_API_URL` | `frontend/platform/api-client/src/lib/client.ts`, `frontend/core/product/src/api/upload.api.ts` |
+| Attendance app → backend | HTTPS REST only (`https://` enforced at import time); device paths with the signed envelope and no Bearer, worker paths with the Bearer token and no envelope (API_CONTRACT AU9) | `EXPO_PUBLIC_API_URL`, `EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID` | `app/src/config.ts`, `app/src/api/appClient.ts`, `app/src/api/accountClient.ts`, `app/src/account/googleSignIn.ts` |
 | Backend → browser origin (CORS, links) | none | `CLIENT_URL` | `CorsConfig`, `UploadTokenUtil` |
 | Backend → MongoDB | Mongo driver | `DB_URI` | `backend/app/src/main/resources/application.properties` |
 | Backend → OCR | HTTPS, AWS SDK | `OCR_PROVIDER`, `OCR_OPENAI_MODEL`, `OCR_GEMINI_MODEL`, `OPENAI_API_KEY`, `GEMINI_API_KEY`, `AWS_ACCESS_KEY`, `AWS_SECRET_ACCESS`, `AWS_REGION` | `OcrConfig` |
@@ -216,6 +234,7 @@ Logic and validation:
 | Backend → Resend | HTTPS | `MESSAGING_EMAIL_ENABLED`, `MESSAGING_DISPATCH_INTERVAL_MS`, `RESEND_API_KEY`, `RESEND_FROM_EMAIL`, `RESEND_FROM_NAME` | `MessageQueueProcessor`, `ResendEmailAdapter` |
 | Backend ↔ Razorpay | HTTPS, webhook | `PAYMENT_GATEWAY`, `RAZORPAY_KEY_ID`, `RAZORPAY_KEY_SECRET`, `RAZORPAY_WEBHOOK_SECRET` | `backend/core/plan/src/main/java/com/inventory/plan/payment/` |
 | Browser → Google sign-in | OAuth | `VITE_GOOGLE_CLIENT_ID` | `frontend/apps/inventory/app/root.tsx` |
+| Backend ← Google ID token audience | allow-list; empty = every Google token refused (API_CONTRACT AU1) | `GOOGLE_OAUTH_CLIENT_IDS` (the web client id and the Stockkart Team app's Android client id) | `backend/core/user/src/main/java/com/inventory/user/externalservice/GoogleTokenVerifier.java` |
 | Backend → Grafana Cloud | OTLP, Loki | `GRAFANA_CLOUD_OTLP_URL`, `GRAFANA_CLOUD_OTLP_USER`, `GRAFANA_CLOUD_LOKI_URL`, `GRAFANA_CLOUD_LOKI_USER`, `GRAFANA_CLOUD_API_TOKEN` | `GrafanaCloudOtlpConfiguration`, `backend/app/src/main/resources/logback-spring.xml` |
 
 ## Known debt and inconsistencies
@@ -226,7 +245,6 @@ Logic and validation:
 | D2 | `apiClient` reads `code` and `details` from errors; the backend envelope sends neither. ProblemDetail errors (backend AGENTS.md E8) fall back to the HTTP status text. | `frontend/platform/api-client/src/lib/client.ts`, `backend/core/common/src/main/java/com/inventory/common/advice/GlobalExceptionHandler.java` |
 | D3 | `subprocess` mode runs the Python module `image_preprocess`. `http` mode defaults (in compose) to the `image-preprocess` service built from `image_preprocess/Dockerfile`. Neither exists in the repo; the compose service is commented out. | `backend/core/ocr/src/main/java/com/inventory/ocr/config/OcrConfig.java`, `backend/docker-compose.yml` |
 | D4 | Public path lists include `/api/product/get-plugin` and `/api/product/`; no controller serves them. | `backend/app/src/main/java/com/inventory/app/config/CorsConfig.java`, `backend/app/src/main/java/com/inventory/app/interceptor/AuthenticationInterceptor.java` |
-| D5 | `GoogleTokenVerifier` does not check the token audience (client id); its code comment says so. | `backend/core/user/src/main/java/com/inventory/user/externalservice/GoogleTokenVerifier.java` |
 | D6 | Actuator endpoints (health, info, prometheus, e.g. `/actuator/health`) sit outside the interceptor paths, so they need no token. | `backend/app/src/main/resources/application.properties`, `backend/app/src/main/java/com/inventory/app/config/CorsConfig.java` |
 | D7 | `MessageChannel` has a WhatsApp channel; only `ResendEmailAdapter` implements `ChannelAdapter`. | `backend/core/notifications/src/main/java/com/inventory/notifications/domain/model/MessageChannel.java` |
 | D8 | Backend has four verticals (medical, grocery, sports, cafe). Frontend loads UI only for cafe; medical is commented out. | `frontend/plugins/registry/src/plugin-loaders.ts` |
@@ -236,4 +254,4 @@ Logic and validation:
 | D12 | Backend `Dockerfile` sets environment variables from build variables but declares no build arguments; runtime values come only from compose or the host. | `backend/Dockerfile` |
 | D13 | Frontend production `Dockerfile` copies 11 of 24 workspace `package.json` files before install; `Dockerfile.dev` copies all. | `frontend/Dockerfile` |
 
-Per-repo debt is in each AGENTS.md (exception lists); not repeated here.
+Per-repo debt is in each AGENTS.md (exception lists); not repeated here. Numbers are stable: D5 (`GoogleTokenVerifier` checked no audience) was closed by the Stockkart Team app's `google.oauth.client-ids` allow-list and its row removed.
